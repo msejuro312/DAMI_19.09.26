@@ -9,6 +9,11 @@ import androidx.core.widget.doAfterTextChanged
 // ActivityMainBinding conecta esta clase con los componentes de activity_main.xml.
 import com.cibertec.servicego.databinding.ActivityMainBinding
 
+import android.content.Intent
+import com.cibertec.servicego.model.Servicio
+import com.cibertec.servicego.model.ClasificadorPrioridad
+import com.cibertec.servicego.model.ServicioFactory
+
 // COMIENZA CAMBIO PARA EL CHECKPOINT 02: IMPORTACIONES PREPARADAS.
 // Intent permitirá abrir la pantalla de detalle y enviarle información.
 // import android.content.Intent
@@ -29,6 +34,9 @@ class MainActivity : AppCompatActivity() {
     // El correlativo comienza en 1 y avanza después de cada registro exitoso.
     private var siguienteCodigo = 1
 
+    private val clasificadorPrioridad = ClasificadorPrioridad()
+    private var ultimoServicioRegistrado: Servicio? = null
+
     // Este indicador evita que los eventos de texto modifiquen el resumen
     // mientras se limpian los campos después de registrar un servicio.
     private var limpiandoFormulario = false
@@ -47,6 +55,12 @@ class MainActivity : AppCompatActivity() {
         binding.buttonRegistrarServicio.setOnClickListener {
             registrarServicio()
         }
+
+        binding.buttonVerDetalle.setOnClickListener {
+            ultimoServicioRegistrado?.let { servicio ->
+                abrirDetalleServicio(servicio)
+            }
+        }
     }
 
     private fun mostrarEstadoInicial() {
@@ -62,6 +76,11 @@ class MainActivity : AppCompatActivity() {
         binding.textViewCostoEstimado.text =
             getString(R.string.costo_estimado_formato, getString(R.string.costo_base_inicial))
         binding.textViewIndicadoresTecnicos.text = getString(R.string.indicadores_iniciales)
+        binding.buttonRegistrarServicio.isEnabled = false
+
+        //agregado: ampliamos el resumen
+
+        binding.textViewPrioridadResumen.text = getString(R.string.prioridad_resumen_placeholder)
         binding.buttonRegistrarServicio.isEnabled = false
     }
 
@@ -114,6 +133,7 @@ class MainActivity : AppCompatActivity() {
             val modalidad = obtenerModalidad(descripcion)
             val costoEstimado = calcularCostoEstimado(tipoServicio, modalidad)
             val tiempoEstimado = calcularTiempoEstimado(tipoServicio, modalidad)
+            val prioridad = obtenerPrioridad(descripcion, modalidad)
 
             binding.textViewCostoEstimado.text =
                 getString(R.string.costo_estimado_formato, "S/ ${"%.2f".format(costoEstimado)}")
@@ -126,6 +146,7 @@ class MainActivity : AppCompatActivity() {
                 )
             binding.textViewMensajeVisible.text =
                 getString(R.string.mensaje_estimacion_previa, tipoServicio.lowercase())
+            binding.textViewPrioridadResumen.text = getString(R.string.prioridad_resumen_formato, prioridad)
         }
 
         binding.buttonRegistrarServicio.isEnabled = listoParaRegistrar
@@ -255,6 +276,20 @@ class MainActivity : AppCompatActivity() {
         val modalidad = obtenerModalidad(descripcion)
         val costoEstimado = calcularCostoEstimado(tipoServicio, modalidad)
         val tiempoEstimado = calcularTiempoEstimado(tipoServicio, modalidad)
+
+        //Agregado: Cada dato nuevo se calcula una sola vez antes de construir el objeto que viajará hacia la pantalla detalle
+        val  prioridad = obtenerPrioridad(descripcion, modalidad)
+        val estado = determinarEstadoServicio(prioridad)
+        val rutaAtencion = determinarRutaAtencion (direccion)
+        val servicio = ServicioFactory.crearServicio(
+            cliente = cliente,
+            descripcion  = descripcion,
+            direccion = direccion,
+            codigo = codigoRegistrado,
+            estado = estado,
+            prioridad = prioridad,
+            rutaAtencion = rutaAtencion
+        )
 
         // La interpolación inserta los valores dentro de textos legibles.
         val costoFormateado = "S/ ${"%.2f".format(costoEstimado)}"
